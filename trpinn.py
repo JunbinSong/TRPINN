@@ -1,25 +1,36 @@
 import numpy as np
 import tensorflow as tf
 from scipy.optimize import minimize
-from trpinn_functions import *
+from trpinn_functions import (
+    MLP,
+    sampling_inside,
+    sampling_boundary,
+    sampling_boundary_randomized,
+    Loss,
+    rel_er_H1_INSIDE,
+    Visualization,
+    relative_error,
+    harmonic_extension,
+    tf_theta,
+)
 from pathlib import Path
 
 
 ####### Hyperparameters ######
 dtype = tf.float32
 Vis_show = 'save' #'show', 'save'
-Save_dir  = "/Users/songjunbin/my_project/venv/PINN/test" #"/Users/..."
+Save_dir = str(Path(__file__).resolve().parent / "results")  # ./results 폴더
 Path(Save_dir).mkdir(parents=True, exist_ok=True)
 
-IR = 10 # Print training status every IR iterations
+IR = 10000 # Print training status every IR iterations
 
-name = 'TRPINN' # file name
+name = 'TRPINN' # file name for saving
 boundary_loss = 'half' # 'half' is for TRPINN and 'L2' is for Vanilla PINN  
 sampling_num_in = 10000 # number of sampled points in the domain interior
 sampling_num_bd = 200 # number of sampled points on the boundary
 
-iteration_adam = 50 # train in two stages: first run Adam for these iterations
-iteration_LBFGS = 50  # then switch to L-BFGS for these iterations (Adam → L-BFGS)
+iteration_adam = 50000 # train in two stages: first run Adam for these iterations
+iteration_LBFGS = 50000  # then switch to L-BFGS for these iterations (Adam → L-BFGS)
 
 model_size = ['tanh', 'glorot_normal', 2, 128, 128, 128, 1] #[activation, initialization, input, layer,.., layer, output]
 
@@ -36,13 +47,13 @@ def g(X): # bounary condition
     x = X[:,0:1]
     y = X[:,1:2]
     theta = tf_theta(x,y)
-    result = tf.sin(10*theta)
+    result = tf.sin(20*theta)
     return result
 
 Sol_FFT = harmonic_extension(g) # Compute the numerical solution via FFT-based harmonic extension of g
 #Sol = [g, Sol_FFT] # for evaluation of relative errors and visualization 
 
-Sol = None # if the exact solution is unknown
+#Sol = None # if the exact solution is unknown
 #def Sol(X): # if we know the exact solution (callable)
 #    x = X[:,0:1]
 #    y = X[:,1:2]
@@ -52,7 +63,7 @@ Sol = None # if the exact solution is unknown
 
 
 ###### Surrogate model ######
-Neural_Net = MLP(model_size) # Multi-layer Perceptron
+Neural_Net = MLP(model_size, dtype = dtype) # Multi-layer Perceptron
 
 
 ###### Sample collocation points for training: ######
